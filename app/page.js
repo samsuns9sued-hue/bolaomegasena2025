@@ -104,7 +104,7 @@ export default function Home() {
         {selected.length === 30 && <span className="text-green-600 font-bold">Pronto!</span>}
       </div>
 
-      <div className="grid grid-cols-6 gap-2 mb-8">
+      <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 mb-8">
         {Array.from({ length: 60 }, (_, i) => i + 1).map((num) => (
           <button
             key={num}
