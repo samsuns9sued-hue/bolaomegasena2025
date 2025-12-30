@@ -54,12 +54,41 @@ export default function CincoJogos() {
         setJogos(novosJogos);
     }
 
+    // Função auxiliar para formatar os jogos do usuário para texto
+    const copiarJogosUsuario = () => {
+        const texto = `🎫 MEUS JOGOS - BOLÃO 2025\nParticipante: ${nome}\n\n` +
+            jogos.map((j, i) => `Jogo ${i + 1}: ${j.join(' - ')}`).join('\n') +
+            `\n\n🍀 Na torcida!`;
+
+        navigator.clipboard.writeText(texto);
+        alert("Jogos copiados! Agora cole no seu WhatsApp ou Bloco de Notas.");
+    };
+
     if (enviado) {
         return (
-            <div className="min-h-screen bg-blue-900 text-white p-4 flex flex-col items-center justify-center text-center">
-                <h1 className="text-4xl font-bold mb-4">Recebido, {nome}! 🎮</h1>
-                <p>Seus 5 jogos estratégicos foram salvos.</p>
-                <button onClick={() => router.push('/')} className="mt-8 bg-white text-blue-900 px-6 py-3 rounded-full font-bold">Voltar ao Início</button>
+            <div className="min-h-screen bg-blue-900 text-white p-6 flex flex-col items-center justify-center text-center">
+                <div className="bg-green-500 rounded-full p-4 mb-4 shadow-lg animate-bounce">
+                    <span className="text-4xl">✅</span>
+                </div>
+                <h1 className="text-3xl font-bold mb-2">Sucesso, {nome}!</h1>
+                <p className="opacity-90 mb-8">Seus 5 jogos foram registrados no sistema seguro.</p>
+
+                <div className="w-full max-w-sm space-y-3">
+                    <button
+                        onClick={copiarJogosUsuario}
+                        className="w-full bg-white text-blue-900 px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors shadow-lg"
+                    >
+                        <span>📋</span> Copiar meus jogos
+                    </button>
+
+                    <button
+                        onClick={() => router.push('/')}
+                        className="w-full bg-blue-800 text-white border border-blue-600 px-6 py-3 rounded-xl font-bold"
+                    >
+                        Voltar ao Início
+                    </button>
+                </div>
+                <p className="mt-8 text-xs opacity-50">Salve seus jogos copiando eles!</p>
             </div>
         );
     }

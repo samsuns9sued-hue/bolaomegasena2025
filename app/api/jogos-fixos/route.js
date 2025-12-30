@@ -23,3 +23,16 @@ export async function POST(request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+
+export async function GET() {
+    try {
+        const client = await pool.connect();
+        // Pega os jogos ordenados do mais recente para o mais antigo
+        const result = await client.query('SELECT * FROM jogos_fixos ORDER BY created_at DESC');
+        client.release();
+
+        return NextResponse.json(result.rows);
+    } catch (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
