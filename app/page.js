@@ -34,6 +34,12 @@ export default function Home() {
   };
 
   const carregarResultado = async () => {
+    // AQUI É A TRAVA DE SEGURANÇA
+    const senha = prompt("Digite a senha de admin:");
+    if (senha !== "admin2025") { // Você pode mudar "admin2025" para o que quiser
+      return alert("Acesso negado. Apenas para o organizador.");
+    }
+
     const res = await fetch('/api/bolao');
     const data = await res.json();
     setDadosResultado(data);
@@ -130,7 +136,7 @@ export default function Home() {
       </button>
 
       <div className="text-center mt-12 border-t pt-4">
-        <button onClick={carregarResultado} className="text-xs text-gray-400">Área do Administrador (Ver Ranking)</button>
+        <button onClick={carregarResultado} className="text-xs text-gray-900 hover:text-gray-400 transition-colors">.</button>
       </div>
     </div>
   );
