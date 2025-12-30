@@ -84,7 +84,7 @@ export default function Home() {
   return (
     <div className="min-h-screen p-4 max-w-2xl mx-auto font-sans">
       <div className="text-center mb-6">
-        <h1 className="text-3xl font-bold text-green-700">Bolão da Família 2025</h1>
+        <h1 className="text-3xl font-bold text-green-700">Bolão: Herdeiros da Mega 2025 🥂</h1>
         <p className="text-gray-600">Escolha seus 30 números da sorte</p>
       </div>
 
