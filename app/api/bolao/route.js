@@ -23,34 +23,74 @@ export async function POST(request) {
     }
 }
 
-export async function GET() {
-    // Essa rota retorna o ranking dos números
+export async function GET(request) {
+    const { searchParams } = new URL(request.url);
+    // Recebe uma string separada por virgulas com os nomes de quem deve ser incluido da tabela de jogos fixos
+    const incluirFixos = searchParams.get('incluirFixos');
+    const nomesParaIncluir = incluirFixos ? incluirFixos.split(',') : [];
+
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT * FROM palpites');
+
+        // 1. Pega os palpites normais (tabela principal)
+        const resultPalpites = await client.query('SELECT nome, numeros FROM palpites');
+        let todosOsPalpites = resultPalpites.rows;
+
+        // 2. Se tiver nomes para incluir da outra tabela, busca e processa
+        let participantesFixosAdicionados = [];
+
+        if (nomesParaIncluir.length > 0) {
+            // Busca jogos fixos apenas dessas pessoas
+            const queryFixos = 'SELECT nome, jogos FROM jogos_fixos WHERE nome = ANY($1)';
+            const resultFixos = await client.query(queryFixos, [nomesParaIncluir]);
+
+            resultFixos.rows.forEach(row => {
+                // Extrai números únicos de todos os jogos da pessoa
+                const numerosUnicos = new Set();
+                // O campo 'jogos' vem como string JSON do banco, precisa de parse se não for automático pelo driver
+                // O driver 'pg' geralmente já devolve JSONB como objeto. Se der erro, colocar JSON.parse.
+                const jogosArray = typeof row.jogos === 'string' ? JSON.parse(row.jogos) : row.jogos;
+
+                jogosArray.forEach(jogo => {
+                    jogo.forEach(num => numerosUnicos.add(num));
+                });
+
+                // Adiciona ao array geral de cálculos como se fosse um palpite normal
+                todosOsPalpites.push({
+                    nome: row.nome + " (Jogos Fixos)",
+                    numeros: Array.from(numerosUnicos)
+                });
+
+                participantesFixosAdicionados.push(row.nome);
+            });
+        }
+
         client.release();
 
+        // 3. O Cálculo do Ranking (agora com todo mundo misturado)
         const frequencia = {};
-        // Inicializa todos os números com 0
         for (let i = 1; i <= 60; i++) frequencia[i] = 0;
 
-        // Conta as repetições
-        result.rows.forEach(row => {
+        todosOsPalpites.forEach(row => {
             row.numeros.forEach(num => {
                 if (frequencia[num] !== undefined) frequencia[num]++;
             });
         });
 
-        // Transforma em array e ordena
         const ranking = Object.entries(frequencia)
             .map(([num, count]) => ({ numero: parseInt(num), votos: count }))
-            .sort((a, b) => b.votos - a.votos); // Do mais votado para o menos votado
+            .sort((a, b) => b.votos - a.votos);
+
+        // Separa a lista de nomes para exibição
+        const participantesOriginais = resultPalpites.rows.map(r => r.nome);
 
         return NextResponse.json({
-            totalParticipantes: result.rows.length,
-            participantes: result.rows.map(r => r.nome),
+            totalParticipantes: todosOsPalpites.length,
+            participantes: participantesOriginais,
+            participantesFixos: participantesFixosAdicionados, // Nova lista separada
             ranking
         });
+
     } catch (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

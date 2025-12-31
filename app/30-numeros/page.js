@@ -9,6 +9,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [verResultado, setVerResultado] = useState(false);
   const [dadosResultado, setDadosResultado] = useState(null);
+  const [listaJogosFixos, setListaJogosFixos] = useState([]); // Todos disponiveis
+  const [selecionadosFixos, setSelecionadosFixos] = useState([]); // Os que vc marcou
 
   const toggleNumber = (num) => {
     if (selected.includes(num)) {
@@ -35,17 +37,44 @@ export default function Home() {
   };
 
   const carregarResultado = async () => {
-    // AQUI É A TRAVA DE SEGURANÇA
     const senha = prompt("Digite a senha de admin:");
-    if (senha !== "admin2025") {
-      return alert("Acesso negado. Apenas para o organizador.");
-    }
+    if (senha !== "admin2025") return alert("Acesso negado.");
 
-    const res = await fetch('/api/bolao');
-    const data = await res.json();
-    setDadosResultado(data);
+    // Busca dados iniciais (sem filtros extras por enquanto)
+    await atualizarRanking([]); // Chama a função nova de buscar dados
+
+    // Busca lista de pessoas que fizeram jogos fixos para popular o select
+    try {
+      const resFixos = await fetch('/api/jogos-fixos');
+      const dataFixos = await resFixos.json();
+      // Filtra nomes únicos
+      const nomesUnicos = [...new Set(dataFixos.map(item => item.nome))];
+      setListaJogosFixos(nomesUnicos);
+    } catch (e) { console.error(e); }
+
     setVerResultado(true);
   };
+
+  const atualizarRanking = async (listaNomesExtras) => {
+    const query = listaNomesExtras.length > 0
+      ? `?incluirFixos=${listaNomesExtras.join(',')}`
+      : '';
+
+    const res = await fetch(`/api/bolao${query}`);
+    const data = await res.json();
+    setDadosResultado(data);
+  }
+
+  const togglePessoaFixa = (nomePessoa) => {
+    let novaLista;
+    if (selecionadosFixos.includes(nomePessoa)) {
+      novaLista = selecionadosFixos.filter(n => n !== nomePessoa);
+    } else {
+      novaLista = [...selecionadosFixos, nomePessoa];
+    }
+    setSelecionadosFixos(novaLista);
+    atualizarRanking(novaLista); // Recarrega os dados na hora
+  }
 
   // TELA DE ADMINISTRAÇÃO
   if (verResultado && dadosResultado) {
@@ -53,6 +82,38 @@ export default function Home() {
       <div className="min-h-screen p-8 bg-gray-900 text-white">
         <h1 className="text-3xl font-bold mb-4 text-green-400">Estatísticas do Bolão</h1>
         <p className="mb-4">Participantes: {dadosResultado.participantes.join(', ')}</p>
+        {/* ÁREA DE FUSÃO DE DADOS */}
+        <div className="bg-gray-800 p-4 rounded border border-blue-900 mb-8">
+          <h3 className="text-blue-400 font-bold text-sm uppercase mb-2">Incluir estatísticas de quem fez Jogos Fixos</h3>
+          <p className="text-xs text-gray-500 mb-4">Clique para adicionar/remover. Os números únicos dos jogos dessa pessoa entrarão no cálculo global.</p>
+
+          <div className="flex flex-wrap gap-2">
+            {listaJogosFixos.map(nomePessoa => {
+              const isSelected = selecionadosFixos.includes(nomePessoa);
+              return (
+                <button
+                  key={nomePessoa}
+                  onClick={() => togglePessoaFixa(nomePessoa)}
+                  className={`text-xs px-3 py-1 rounded-full border transition-all flex items-center gap-2
+                        ${isSelected
+                      ? 'bg-blue-600 border-blue-400 text-white'
+                      : 'bg-gray-700 border-gray-600 text-gray-400 hover:bg-gray-600'}
+                    `}
+                >
+                  {nomePessoa}
+                  {isSelected && <span className="font-bold text-blue-200">✕</span>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* EXIBIÇÃO DOS EXTRAS ADICIONADOS */}
+        {dadosResultado.participantesFixos && dadosResultado.participantesFixos.length > 0 && (
+          <p className="mb-4 text-sm text-blue-300">
+            <span className="font-bold">Extras (Jogos Fixos):</span> {dadosResultado.participantesFixos.join(', ')}
+          </p>
+        )}
 
         <h2 className="text-xl font-bold mt-6 mb-2">Números mais repetidos (Top 15)</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-8">
