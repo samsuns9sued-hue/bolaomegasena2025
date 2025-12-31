@@ -13,27 +13,55 @@ export async function GET(request) {
     try {
         const client = await pool.connect();
 
-        // 1. Pegar Ranking (Lógica dos 30 números)
+        // === MUDANÇA AQUI: LÓGICA DE FUSÃO GLOBAL ===
+
+        // 1. Pega palpites normais
         const palpitesRes = await client.query('SELECT numeros FROM palpites');
-        const frequencia = {};
-        palpitesRes.rows.forEach(row => {
-            row.numeros.forEach(num => {
-                frequencia[num] = (frequencia[num] || 0) + 1;
+        let todosNumeros = [];
+        palpitesRes.rows.forEach(r => todosNumeros.push(...r.numeros));
+
+        // 2. Verifica a configuração de quem deve ser incluído (Jogos Fixos)
+        const configRes = await client.query("SELECT valor FROM configuracoes WHERE chave = 'fixos_ativos'");
+        const nomesAtivos = configRes.rows[0]?.valor || [];
+
+        // 3. Se tiver nomes ativos, busca os jogos deles e mistura
+        if (nomesAtivos.length > 0) {
+            const fixosRes = await client.query('SELECT jogos FROM jogos_fixos WHERE nome = ANY($1)', [nomesAtivos]);
+
+            fixosRes.rows.forEach(row => {
+                // Extrai números únicos dos jogos dessa pessoa
+                const jogosArray = typeof row.jogos === 'string' ? JSON.parse(row.jogos) : row.jogos;
+                const unicosDestaPessoa = new Set();
+                jogosArray.forEach(jogo => jogo.forEach(n => unicosDestaPessoa.add(n)));
+
+                // Adiciona ao bolo principal
+                todosNumeros.push(...Array.from(unicosDestaPessoa));
             });
+        }
+
+        // 4. Calcula Frequência com TODOS os dados misturados
+        const frequencia = {};
+        // Inicia com 0
+        for (let i = 1; i <= 60; i++) frequencia[i] = 0;
+
+        todosNumeros.forEach(num => {
+            if (frequencia[num] !== undefined) frequencia[num]++;
         });
-        // Ordena do mais votado para o menos votado
+
+        // Gera o Ranking Final Global
         const ranking = Object.entries(frequencia)
             .map(([num, count]) => ({ numero: parseInt(num), votos: count }))
             .sort((a, b) => b.votos - a.votos);
 
-        // 2. Se tiver nome, busca histórico dele
+        // === FIM DA MUDANÇA DE FUSÃO ===
+
+        // Resto do código continua igual (buscar histórico, usuarios, etc)
         let historico = [];
         if (nome) {
             const histRes = await client.query('SELECT * FROM jogos_gerados WHERE nome = $1 ORDER BY created_at DESC', [nome]);
             historico = histRes.rows;
         }
 
-        // 3. Busca lista de todos os usuários únicos desta tabela
         const usuariosRes = await client.query('SELECT DISTINCT nome FROM jogos_gerados');
         const usuarios = usuariosRes.rows.map(r => r.nome);
 

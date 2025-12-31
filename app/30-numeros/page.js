@@ -37,20 +37,24 @@ export default function Home() {
   };
 
   const carregarResultado = async () => {
-    const senha = prompt("Digite a senha de admin:");
-    if (senha !== "admin2025") return alert("Acesso negado.");
+    const senha = prompt("Senha:");
+    if (senha !== "admin2025") return;
 
-    // Busca dados iniciais (sem filtros extras por enquanto)
-    await atualizarRanking([]); // Chama a função nova de buscar dados
+    // 1. Busca estatísticas (já vem mesclado da API nova)
+    const resBolao = await fetch('/api/bolao');
+    const dataBolao = await resBolao.json();
+    setDadosResultado(dataBolao);
 
-    // Busca lista de pessoas que fizeram jogos fixos para popular o select
-    try {
-      const resFixos = await fetch('/api/jogos-fixos');
-      const dataFixos = await resFixos.json();
-      // Filtra nomes únicos
-      const nomesUnicos = [...new Set(dataFixos.map(item => item.nome))];
-      setListaJogosFixos(nomesUnicos);
-    } catch (e) { console.error(e); }
+    // 2. Busca lista de TODOS fixos disponíveis
+    const resFixos = await fetch('/api/jogos-fixos');
+    const dataFixos = await resFixos.json();
+    const nomesUnicos = [...new Set(dataFixos.map(item => item.nome))];
+    setListaJogosFixos(nomesUnicos);
+
+    // 3. Busca QUAIS estão ativos na configuração
+    const resConfig = await fetch('/api/config');
+    const dataConfig = await resConfig.json();
+    setSelecionadosFixos(dataConfig); // Preenche os botões azuis corretamente
 
     setVerResultado(true);
   };
@@ -65,15 +69,27 @@ export default function Home() {
     setDadosResultado(data);
   }
 
-  const togglePessoaFixa = (nomePessoa) => {
+  const togglePessoaFixa = async (nomePessoa) => {
     let novaLista;
     if (selecionadosFixos.includes(nomePessoa)) {
       novaLista = selecionadosFixos.filter(n => n !== nomePessoa);
     } else {
       novaLista = [...selecionadosFixos, nomePessoa];
     }
+
+    // Atualiza visualmente na hora para não travar
     setSelecionadosFixos(novaLista);
-    atualizarRanking(novaLista); // Recarrega os dados na hora
+
+    // Salva no banco (Memória Global)
+    await fetch('/api/config', {
+      method: 'POST',
+      body: JSON.stringify({ nomes: novaLista })
+    });
+
+    // Recarrega as estatísticas do bolão
+    const res = await fetch('/api/bolao');
+    const data = await res.json();
+    setDadosResultado(data);
   }
 
   // TELA DE ADMINISTRAÇÃO

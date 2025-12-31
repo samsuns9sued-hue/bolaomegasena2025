@@ -23,39 +23,33 @@ export async function POST(request) {
     }
 }
 
-export async function GET(request) {
-    const { searchParams } = new URL(request.url);
-    // Recebe uma string separada por virgulas com os nomes de quem deve ser incluido da tabela de jogos fixos
-    const incluirFixos = searchParams.get('incluirFixos');
-    const nomesParaIncluir = incluirFixos ? incluirFixos.split(',') : [];
-
+export async function GET() {
+    // Não precisamos mais ler searchParams, vamos ler do banco
     try {
         const client = await pool.connect();
 
-        // 1. Pega os palpites normais (tabela principal)
+        // 1. Pega palpites normais
         const resultPalpites = await client.query('SELECT nome, numeros FROM palpites');
         let todosOsPalpites = resultPalpites.rows;
 
-        // 2. Se tiver nomes para incluir da outra tabela, busca e processa
+        // 2. Lê a configuração global
+        const configRes = await client.query("SELECT valor FROM configuracoes WHERE chave = 'fixos_ativos'");
+        const nomesParaIncluir = configRes.rows[0]?.valor || [];
+
         let participantesFixosAdicionados = [];
 
         if (nomesParaIncluir.length > 0) {
-            // Busca jogos fixos apenas dessas pessoas
             const queryFixos = 'SELECT nome, jogos FROM jogos_fixos WHERE nome = ANY($1)';
             const resultFixos = await client.query(queryFixos, [nomesParaIncluir]);
 
             resultFixos.rows.forEach(row => {
-                // Extrai números únicos de todos os jogos da pessoa
                 const numerosUnicos = new Set();
-                // O campo 'jogos' vem como string JSON do banco, precisa de parse se não for automático pelo driver
-                // O driver 'pg' geralmente já devolve JSONB como objeto. Se der erro, colocar JSON.parse.
                 const jogosArray = typeof row.jogos === 'string' ? JSON.parse(row.jogos) : row.jogos;
 
                 jogosArray.forEach(jogo => {
                     jogo.forEach(num => numerosUnicos.add(num));
                 });
 
-                // Adiciona ao array geral de cálculos como se fosse um palpite normal
                 todosOsPalpites.push({
                     nome: row.nome + " (Jogos Fixos)",
                     numeros: Array.from(numerosUnicos)
